@@ -35,22 +35,22 @@ def WaitFor(ser, success, failure, timeOut):
     return ReceiveUntil(ser, success, failure, timeOut) != ''
 
 def ReceiveUntil(ser, success, failure, timeOut):
-	iterCount = timeOut / 0.1
-	ser.timeout = 0.1
-	currentMsg = ''
-	while iterCount >= 0 and success not in currentMsg and failure not in currentMsg :
-		sleep(0.1)
-		while ser.inWaiting() > 0 :
-			c = ser.read()
-			currentMsg += c
-		iterCount -= 1
-	if success in currentMsg :
-		return currentMsg
-	elif failure in currentMsg :
-		print('Failure (' + currentMsg.replace('\r\n', '') + ')')
-	else :
-		print('Receive timeout (' + currentMsg.replace('\r\n', '') + ')')
-	return ''
+    iterCount = timeOut / 0.1
+    ser.timeout = 0.1
+    currentMsg = ''
+    while iterCount >= 0 and success not in currentMsg and failure not in currentMsg :
+        sleep(0.1)
+        while ser.inWaiting() > 0 :
+            c = ser.read()
+            currentMsg += c
+        iterCount -= 1
+    if success in currentMsg:
+        return currentMsg
+    elif failure in currentMsg:
+        print('Failure (' + currentMsg.replace('\r\n', '') + ')')
+    else :
+        print('Receive timeout (' + currentMsg.replace('\r\n', '') + ')')
+    return ''
 
 print('Sending SigFox Message...')
 
@@ -62,14 +62,14 @@ if len(sys.argv) == 3:
 print('Serial port : ' + portName)
 
 ser = serial.Serial(
-	port=portName,
-	baudrate=9600,
-	parity=serial.PARITY_NONE,
-	stopbits=serial.STOPBITS_ONE,
-	bytesize=serial.EIGHTBITS
+    port=portName,
+    baudrate=9600,
+    parity=serial.PARITY_NONE,
+    stopbits=serial.STOPBITS_ONE,
+    bytesize=serial.EIGHTBITS
 )
 
-if ser.isOpen() : # on some platforms the serial port needs to be closed first 
+if ser.isOpen(): # on some platforms the serial port needs to be closed first 
     ser.close()
 
 try:
@@ -80,43 +80,43 @@ except serial.SerialException as e:
 
 ser.write('AT\r')
 if WaitFor(ser, 'OK', 'ERROR', 3) :
-	print('SigFox Modem OK')
+    print('SigFox Modem OK')
 else:
-	print('SigFox Modem Init Error')
-	ser.close()
-	exit()
+    print('SigFox Modem Init Error')
+    ser.close()
+    exit()
 
 ser.write('ATE0\r')
 if WaitFor(ser, 'OK', 'ERROR', 3) :
-	print('SigFox Modem echo OFF')
+    print('SigFox Modem echo OFF')
 else:
-	print('SigFox Modem Configuration Error')
-	ser.close()
-	exit()
+    print('SigFox Modem Configuration Error')
+    ser.close()
+    exit()
 
 ser.write("AT$SF={0},2,1\r".format(sys.argv[1]))
 print('Sending ...')
 if WaitFor(ser, 'OK', 'ERROR', 25) :
-	print('Message sent')
+    print('Message sent')
 else:
-	print('Error sending message')
-	ser.close()
-	exit()
+    print('Error sending message')
+    ser.close()
+    exit()
 
 if WaitFor(ser, 'BEGIN', 'ERROR', 25) :
-	print('Waiting for answer')
+    print('Waiting for answer')
 else:
-	print('Error waiting for answer')
-	ser.close()
-	exit()
+    print('Error waiting for answer')
+    ser.close()
+    exit()
 
 rxData = ReceiveUntil(ser, 'END', 'ERROR', 25)
 if rxData != '' :
-	print('Answer received')
+    print('Answer received')
 else:
-	print('Error receiving answer')
-	ser.close()
-	exit()
+    print('Error receiving answer')
+    ser.close()
+    exit()
 
 print(re.sub(r'\+RX=([0-9af ]{2,})\+RX END', r'\1', rxData.replace('\r\n', '')))
 
