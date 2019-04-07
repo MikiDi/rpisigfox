@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/python3
 
 ## @package rpisigfox
 #  This script allow the control of the rpisigfox expansion board for Raspberry Pi.
@@ -24,6 +24,7 @@ class Sigfox:
     NAK = chr(0x15)
     CAN = chr(0x18)
     CRC = chr(0x43)
+    MAX_UPLINK_LENGTH = 12 # in bytes
 
     def __init__(self, port="/dev/ttyAMA0", timeout=None):
         logging.debug('Serial port : {}'.format(port))
@@ -36,51 +37,60 @@ class Sigfox:
             timeout=timeout
         )
 
-    def getc(self, size, timeout=1):
-        return self.ser.read(size)
-
-    def putc(self, data, timeout=1):
-        self.ser.write(data)
-        sleep(0.001) # give device time to prepare new buffer and start sending it
-
     def wait_for(self, success, failure, timeout):
-        return self.receive_until(success, failure, timeout) != ''
+        return self.receive_until(success, failure, timeout).decode() != ''
 
     def receive_until(self, success, failure, timeout):
-        iter_count = timeout / 0.1
-        self.ser.timeout = 0.1
-        current_msg = ''
-        while iter_count >= 0 and success not in current_msg and failure not in current_msg:
-            sleep(0.1)
-            while self.ser.inWaiting() > 0: # bunch of data ready for reading
-                c = self.ser.read()
-                current_msg += c
-            iter_count -= 1
-        if success in current_msg:
+        old_timeout = self.ser.timeout
+        self.ser.timeout = timeout
+        current_msg = self.ser.read_until(success.encode())
+        self.ser.timeout = old_timeout
+        if success in current_msg.decode():
             return current_msg
-        elif failure in current_msg:
-            logging.warning('Failure ({})'.format(current_msg.replace('\r\n', '')))
+        elif failure in current_msg.decode():
+            logging.warning('Failure ({})'.format(current_msg.decode().replace('\r\n', '')))
         else:
-            logging.error('Receive timeout ({})'.format(current_msg.replace('\r\n', '')))
+            logging.error('Receive timeout ({})'.format(current_msg.decode().replace('\r\n', '')))
         return ''
 
-    def send_message(self, message):
-        print('Sending SigFox Message...')
-
-        if self.ser.isOpen() is True: # on some platforms the serial port needs to be closed first
+    def init_modem(self):
+        if self.ser.is_open is True: # on some platforms the serial port needs to be closed first
             self.ser.close()
 
         try:
             self.ser.open()
         except serial.SerialException as e:
             logging.error("Could not open serial port {}: {}\n".format(self.ser.name, e))
-            sys.exit(1)
+            return
 
-        self.ser.write('AT\r')
+        self.ser.write('AT\r'.encode())
         if self.wait_for('OK', 'ERROR', 3):
             logging.info('SigFox Modem OK')
+        else:
+            logging.warning('SigFox Modem Init Error')
+            self.ser.close()
+            return
 
-            self.ser.write("AT$SS={0}\r".format(message))
+        self.ser.write('ATE0\r'.encode())
+        if self.wait_for('OK', 'ERROR', 3):
+            logging.info('SigFox Modem echo OFF')
+        else:
+            logging.warning('SigFox Modem Configuration Error')
+            self.ser.close()
+            return
+
+        return self.ser
+
+
+    def send_message(self, bytestring):
+
+        self.init_modem()
+
+        if self.ser.is_open:
+            logging.info('Sending SigFox Message...')
+            if len(bytestring) > self.MAX_UPLINK_LENGTH:
+                logging.warning("Message longer than 12 bytes. Truncating ...")
+            self.ser.write("AT$SF={0},2,0\r".format(bytestring[:self.MAX_UPLINK_LENGTH].hex()).encode())
             logging.info('Sending ...')
             if self.wait_for('OK', 'ERROR', 15):
                 logging.info('OK Message sent')
@@ -103,4 +113,4 @@ if __name__ == '__main__':
         message = "{0}".format(sys.argv[1])
     else:
         message = DEFAULT_MESSAGE
-    sgfx.send_message(message)
+    sgfx.send_message(message.encode(encoding="utf-8"))
