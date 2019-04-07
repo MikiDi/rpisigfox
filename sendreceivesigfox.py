@@ -5,12 +5,11 @@
 #
 #  V1.0 allow only to send regular message on the SigFox Network.
 #  syntax is :
-#  sendsigfox MESSAGE 
+#  sendsigfox MESSAGE
 #  where MESSAGE is an HEXA string encoded. Can be 2 to 24 characters representing 1 to 12 bytes.
 #  Example : sendsigfox 00AA55BF to send the 4 bytes 0x00 0xAA 0x55 0xBF
 # 
 
-import time
 import serial
 import sys
 import re
@@ -69,7 +68,7 @@ ser = serial.Serial(
     bytesize=serial.EIGHTBITS
 )
 
-if ser.isOpen(): # on some platforms the serial port needs to be closed first 
+if ser.isOpen(): # on some platforms the serial port needs to be closed first
     ser.close()
 
 try:
@@ -79,7 +78,7 @@ except serial.SerialException as e:
     sys.exit(1)
 
 ser.write('AT\r')
-if WaitFor(ser, 'OK', 'ERROR', 3) :
+if WaitFor(ser, 'OK', 'ERROR', 3):
     print('SigFox Modem OK')
 else:
     print('SigFox Modem Init Error')
@@ -87,7 +86,7 @@ else:
     exit()
 
 ser.write('ATE0\r')
-if WaitFor(ser, 'OK', 'ERROR', 3) :
+if WaitFor(ser, 'OK', 'ERROR', 3):
     print('SigFox Modem echo OFF')
 else:
     print('SigFox Modem Configuration Error')
@@ -96,14 +95,14 @@ else:
 
 ser.write("AT$SF={0},2,1\r".format(sys.argv[1]))
 print('Sending ...')
-if WaitFor(ser, 'OK', 'ERROR', 25) :
+if WaitFor(ser, 'OK', 'ERROR', 25):
     print('Message sent')
 else:
     print('Error sending message')
     ser.close()
     exit()
 
-if WaitFor(ser, 'BEGIN', 'ERROR', 25) :
+if WaitFor(ser, 'BEGIN', 'ERROR', 25):
     print('Waiting for answer')
 else:
     print('Error waiting for answer')
@@ -111,7 +110,7 @@ else:
     exit()
 
 rxData = ReceiveUntil(ser, 'END', 'ERROR', 25)
-if rxData != '' :
+if rxData != '':
     print('Answer received')
 else:
     print('Error receiving answer')
